@@ -26,27 +26,37 @@ pipeline {
             }
         }
 
-        stage('Docker Push') {
-            steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'dockerhub-credentials',
-                        usernameVariable: 'DOCKER_USERNAME',
-                        passwordVariable: 'DOCKER_PASSWORD'
-                    )
-                ]) {
-                    sh '''
-                        echo "$DOCKER_PASSWORD" | docker login \
-                            -u "$DOCKER_USERNAME" \
-                            --password-stdin
+        stage('Docker Push & Deploy') {
+    		steps {
+        		withCredentials([
+            			usernamePassword(
+                			credentialsId: 'dockerhub-credentials',
+                			usernameVariable: 'DOCKER_USERNAME',
+                			passwordVariable: 'DOCKER_PASSWORD'
+            			)
+        		]) {
+            			sh '''
+                			echo "$DOCKER_PASSWORD" | docker login \
+                    				-u "$DOCKER_USERNAME" \
+                    				--password-stdin
 
-                        docker push $DOCKER_IMAGE
+                			docker push $DOCKER_IMAGE
 
-                        docker logout
-                    '''
-                }
-            }
-        }
+                			docker rm -f backend-app 2>/dev/null || true
+
+                			docker pull $DOCKER_IMAGE
+
+                			docker run -d \
+                    				--name backend-app \
+                    				--network devops-network \
+                    				-p 8082:8082 \
+                    				$DOCKER_IMAGE
+
+                			docker logout
+            			'''
+        			}
+    				}
+		}
 
         stage('Deploy MySQL') {
             steps {
